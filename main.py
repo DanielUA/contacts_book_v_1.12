@@ -45,9 +45,8 @@ class Birthday(Field):
 
 
 class Record:
-    def __init__(self, name, birthday=None, file=None):
+    def __init__(self, name, birthday=None):
         self.name = Name(name)
-        self.file = file if file is not None else None
         self.phones = []
         self.birthday = Birthday(birthday) if birthday is not None else None
 
@@ -155,6 +154,110 @@ class AddressBook(UserDict):
             if found_user:
                 result.append(found_user)
         return result
+
+# Завантаження адресної книги при старті програми
+book = AddressBook()
+loaded_book = book.load_address_book()
+if loaded_book:
+    book = loaded_book
+
+def input_error(func):
+    def wrapper(command):
+        try:
+            return func(command)
+        except (TypeError) as e:
+            return f"Input error of type: {e}"
+        except (IndexError) as e:
+            return f"Input error: {e}"
+        except (ValueError) as e:
+            return f"Input 3 arguments only(example: command name phone): {e}"
+        except (KeyError) as e:
+            return f"Input error: {e}"
+        except Exception as e:
+            return f"Command error"
+    return wrapper
+
+@input_error
+def add(command):
+    com, name, phone = command.split()
+    if not com == "add":
+        raise Exception("Incorrect command name, try again")
+    if name in book.data:
+        raise KeyError("This name is exist")
+    
+    new_record = Record(name)
+    new_record.add_phone(phone)
+    book.add_record(new_record)
+    book.save_address_book()  # Збереження адресної книги при додаванні нового запису
+    return "Record added successfully."
+
+@input_error
+def change(command):
+    com, name, phone = command.split()
+    if not com == "change":
+        raise Exception("Incorrect command name, try again")
+    if not name in book.data:
+        raise KeyError("This name is not exist")
+    
+    record = book.find(name)
+    record.edit_phone(record.phones[0].value, phone)
+    book.save_address_book()  # Збереження адресної книги при зміні номера телефону
+    return "Phone number changed successfully."
+
+@input_error
+def phone(command):
+    com, name = command.split()
+    if not com == "phone":
+        raise Exception("Incorrect command name, try again")
+    if not name in book.data:
+        raise KeyError("This name is not exist")
+    
+    record = book.find(name)
+    return f"{record.name.value} has phone {record.phones[0].value}"
+
+@input_error
+def show_all(command):
+    if command != "show all":
+        raise Exception("Incorrect command name, try again")
+    result = [str(record) for record in book.data.values()]        
+    return "\n".join(result)
+
+COMMANDS = {   
+    "add": add,
+    "change": change,
+    "phone": phone,
+    "show all": show_all,
+}
+
+@input_error
+def command_action(command):
+    for el in COMMANDS:
+        if command.startswith(el):
+            return COMMANDS[el]
+    raise Exception("Incorrect command name, try again")
+
+def main():
+    while True:
+        command = input("Enter your command: ").lower()
+        if command in ["good bye", "close", "exit", "."]:
+            print("Good bye!")
+            break
+        elif command == "hello":
+            print("How can I help you?")
+            continue
+        func = command_action(command)
+        if func == "Command error":         
+            print(func)
+            continue
+        result = func(command)
+        if result == "break":
+            break
+        elif result:
+            print(result)
+
+if __name__ == "__main__":
+    main()
+
 
 # Створення нової адресної книги
 book = AddressBook()
