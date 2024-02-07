@@ -4,15 +4,15 @@ import os
 import pickle
 
 
-class Field():
+class Field:
     def __init__(self, value):
         if not self.valid(value):
             raise ValueError("Incorrect value")
         self.__value = value
-    
+
     def valid(self, value):
         return True
- 
+
     @property
     def value(self):
         return self.__value
@@ -23,6 +23,7 @@ class Field():
             raise ValueError("Incorrect value")
         self.__value = value
 
+
 class Name(Field):
     def valid(self, value):
         return value.isalpha()
@@ -30,9 +31,7 @@ class Name(Field):
 
 class Phone(Field):
     def valid(self, value):
-        if not (len(value) == 10 and value.isdigit()):
-            return False
-        return True
+        return len(value) == 10 and value.isdigit()
 
 
 class Birthday(Field):
@@ -41,7 +40,7 @@ class Birthday(Field):
             datetime.strptime(value, "%d.%m.%Y")
             return True
         except ValueError:
-            return False 
+            return False
 
 
 class Record:
@@ -77,12 +76,12 @@ class Record:
             if phone.value == old_number:
                 phone.value = new_number
                 phone.valid(new_number)
-                return 
+                return
         raise ValueError(f"Invalid phone number: {old_number}")
 
     def find_phone(self, phone_number):
         return next((phone for phone in self.phones if phone.value == phone_number), None)
-    
+
     def find_user_by_phone_name(self, query):
         query = query.lower()
         if query.isdigit():
@@ -97,6 +96,7 @@ class Record:
     def __str__(self):
         phones_str = '; '.join(str(phone.value) for phone in self.phones)
         return f"Contact name: {self.name.value}, phones: {phones_str}"
+
 
 class AddressBook(UserDict):
     def __init__(self, file=None):
@@ -124,17 +124,15 @@ class AddressBook(UserDict):
     def delete(self, name):
         if name in self.data:
             del self.data[name]
-    
+
     def save_address_book(self):
-        full_file_path = self.get_full_file_path()
-        if full_file_path:
+        if full_file_path := self.get_full_file_path():
             with open(full_file_path, "wb") as fh:
-                pickle.dump(self, fh)
+                pickle.dump(self.data, fh)
             print(f"Address book saved successfully to '{full_file_path}'.")
 
     def load_address_book(self):
-        full_file_path = self.get_full_file_path()
-        if full_file_path:
+        if full_file_path := self.get_full_file_path():
             if os.path.exists(full_file_path):
                 with open(full_file_path, "rb") as fh:
                     content = pickle.load(fh)
@@ -142,24 +140,18 @@ class AddressBook(UserDict):
                 return content
             else:
                 print(f"File '{full_file_path}' not found. Creating a new address book.")
-                return self
+                return {}
         else:
             print("File not specified. Unable to load the address book.")
-            return None
+            return {}
 
     def search(self, query):
         result = []
-        for record in self.data.values():
-            found_user = record.find_user_by_phone_name(query)
-            if found_user:
+        for el in self.data.values():
+            if found_user := el.find_user_by_phone_name(query):
                 result.append(found_user)
         return result
 
-# Завантаження адресної книги при старті програми
-book = AddressBook()
-loaded_book = book.load_address_book()
-if loaded_book:
-    book = loaded_book
 
 def input_error(func):
     def wrapper(command):
@@ -174,60 +166,66 @@ def input_error(func):
         except (KeyError) as e:
             return f"Input error: {e}"
         except Exception as e:
-            return f"Command error"
+            return "Command error"
+
     return wrapper
+
 
 @input_error
 def add(command):
     com, name, phone = command.split()
-    if not com == "add":
+    if com != "add":
         raise Exception("Incorrect command name, try again")
     if name in book.data:
         raise KeyError("This name is exist")
-    
+
     new_record = Record(name)
     new_record.add_phone(phone)
     book.add_record(new_record)
     book.save_address_book()  # Збереження адресної книги при додаванні нового запису
     return "Record added successfully."
 
+
 @input_error
 def change(command):
     com, name, phone = command.split()
-    if not com == "change":
+    if com != "change":
         raise Exception("Incorrect command name, try again")
-    if not name in book.data:
+    if name not in book.data:
         raise KeyError("This name is not exist")
-    
+
     record = book.find(name)
     record.edit_phone(record.phones[0].value, phone)
     book.save_address_book()  # Збереження адресної книги при зміні номера телефону
     return "Phone number changed successfully."
 
+
 @input_error
 def phone(command):
     com, name = command.split()
-    if not com == "phone":
+    if com != "phone":
         raise Exception("Incorrect command name, try again")
-    if not name in book.data:
+    if name not in book.data:
         raise KeyError("This name is not exist")
-    
+
     record = book.find(name)
     return f"{record.name.value} has phone {record.phones[0].value}"
 
-@input_error
-def show_all(command):
-    if command != "show all":
+
+def show_all(com):
+    if com != "show all":
         raise Exception("Incorrect command name, try again")
-    result = [str(record) for record in book.data.values()]        
+    result = [str(record) for record in book.data.values()]
     return "\n".join(result)
 
-COMMANDS = {   
+
+COMMANDS = {
     "add": add,
     "change": change,
     "phone": phone,
     "show all": show_all,
 }
+
 
 @input_error
 def command_action(command):
@@ -236,69 +234,51 @@ def command_action(command):
             return COMMANDS[el]
     raise Exception("Incorrect command name, try again")
 
+book = AddressBook(file="example.pkl")
+book.data = book.load_address_book()
+
 def main():
+    print("Welcome to the Address Book Program!")
+    print("Available commands:")
+    print("1. add <name> <phone> - Add a new record to the address book.")
+    print("2. change <name> <phone> - Change the phone number of an existing record.")
+    print("3. phone <name> - Retrieve the phone number for a specific name.")
+    print("4. show all - Display all records in the address book.")
+    print("5. search <query> - Search for records based on a query.")
+    print("6. hello - Display a welcome message.")
+    print("7. good bye, close, exit, . - Exit the program.")
+
     while True:
+        print()
         command = input("Enter your command: ").lower()
         if command in ["good bye", "close", "exit", "."]:
+            # Save the address book before exiting the program
+            book.save_address_book()
             print("Good bye!")
             break
         elif command == "hello":
             print("How can I help you?")
             continue
-        func = command_action(command)
-        if func == "Command error":         
-            print(func)
-            continue
-        result = func(command)
-        if result == "break":
-            break
-        elif result:
-            print(result)
+        elif command.startswith("search"):
+            query = command.split(" ", 1)[1]  # Extract the search query
+            results = book.search(query)
+            if results:
+                print("Search Results:")
+                for result in results:
+                    print(result)
+            else:
+                print("No matching records found.")
+        else:
+            func = command_action(command)
+            if func == "Command error":
+                print(func)
+                continue
+            result = func(command)
+            if result == "break":
+                break
+            elif result:
+                print(result)
+
 
 if __name__ == "__main__":
     main()
-
-
-# Створення нової адресної книги
-book = AddressBook()
-
-# Створення запису для John
-john_record = Record("John")
-john_record.add_phone("1234567890")
-john_record.add_phone("5555555555")
-
-# Додавання запису John до адресної книги
-book.add_record(john_record)
-
-# Створення та додавання нового запису для Jane
-jane_record = Record("Jane")
-jane_record.add_phone("9876543210")
-book.add_record(jane_record)
-
-# Виведення всіх записів у книзі
-for name, record in book.data.items():
-    print(record)
-
-# Знаходження та редагування телефону для John
-john = book.find("John")
-john.edit_phone("1234567890", "1112223333")
-
-print(john)  # Виведення: Contact name: John, phones: 1112223333; 5555555555
-
-# Пошук конкретного телефону у записі John
-found_phone = john.find_phone("5555555555")
-
-# Видалення запису Jane
-book.delete("Jane")
-
-# Збереження адресної книги на диск
-book.file = "address_book.pkl"
-book.save_address_book()
-
-# Відновлення адресної книги з диска
-restored_book = AddressBook(file="address_book.pkl")
-restored_book.load_address_book()
-
-# Пошук у відновленій адресній книзі за номером телефону або ім'ям
-search_result = restored_book.search("555")
-
