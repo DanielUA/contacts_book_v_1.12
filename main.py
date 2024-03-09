@@ -1,8 +1,18 @@
 from collections import UserDict
 from datetime import date, datetime
+from abc import ABC, abstractmethod
 import os
 import pickle
+import sys
 
+class UserInterface(ABC):
+    @abstractmethod
+    def display_information(self, information):
+        pass
+
+class ConsoleUserInterface(UserInterface):
+    def display_information(self, information):
+        print(information)
 
 class Field:
     def __init__(self, value):
@@ -99,9 +109,13 @@ class Record:
 
 
 class AddressBook(UserDict):
-    def __init__(self, file=None):
+    def __init__(self, file=None, user_interface = None):
         super().__init__()
         self.file = file
+        self.user_interface = user_interface if user_interface else ConsoleUserInterface()
+
+    def set_user_interface(self, user_interface):
+        self.user_interface = user_interface 
 
     def get_full_file_path(self):
         if self.file:
@@ -129,7 +143,7 @@ class AddressBook(UserDict):
         if full_file_path := self.get_full_file_path():
             with open(full_file_path, "wb") as fh:
                 pickle.dump(self.data, fh)
-            print(f"Address book saved successfully to '{full_file_path}'.")
+            self.user_interface.display_information(f"Address book saved successfully to '{full_file_path}'.")
 
     def load_address_book(self):
         if full_file_path := self.get_full_file_path():
@@ -254,31 +268,37 @@ def main():
         if command in ["good bye", "close", "exit", "."]:
             # Save the address book before exiting the program
             book.save_address_book()
-            print("Good bye!")
-            break
+            book.user_interface.display_information("Good bye!")
+            sys.exit()
+
         elif command == "hello":
-            print("How can I help you?")
+            book.user_interface.display_information("How can I help you?")
             continue
+
         elif command.startswith("search"):
             query = command.split(" ", 1)[1]  # Extract the search query
             results = book.search(query)
             if results:
-                print("Search Results:")
+                book.user_interface.display_information("Search Results:")
                 for result in results:
-                    print(result)
+                    book.user_interface.display_information(result)
             else:
-                print("No matching records found.")
+                book.user_interface.display_information("No matching records found.")
+
         else:
             func = command_action(command)
             if func == "Command error":
-                print(func)
+                book.user_interface.display_information(func)
                 continue
             result = func(command)
             if result == "break":
-                break
+                sys.exit()
             elif result:
-                print(result)
+                book.user_interface.display_information(result)
 
 
 if __name__ == "__main__":
+    console_ui = ConsoleUserInterface()
+    book = AddressBook(file="example.pkl", user_interface=console_ui)
+    book.data = book.load_address_book()
     main()
